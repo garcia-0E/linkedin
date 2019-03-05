@@ -50,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        getPackageHash();
+
         signInButton = findViewById(R.id.linkedin_login_button);
         logoutButton = findViewById(R.id.logout_button);
         userImageView = findViewById(R.id.user_profile_image_view);
@@ -75,24 +77,23 @@ public class MainActivity extends AppCompatActivity {
         //First check if user is already authenticated or not and session is valid or not
         if (!LISessionManager.getInstance(this).getSession().isValid()) {
             //if not valid then start authentication
-            LISessionManager.getInstance(getApplicationContext()).init(this, buildScope(), new AuthListener() {
-                @Override
-                public void onAuthSuccess() {
-                    // Authentication was successful. You can now do
-                    // other calls with the SDK.
-                    Toast.makeText(MainActivity.this, "Successfully authenticated with LinkedIn.", Toast.LENGTH_SHORT).show();
+            LISessionManager.getInstance(getApplicationContext()).init(this, buildScope()//pass the build scope here
+                    , new AuthListener() {
+                        @Override
+                        public void onAuthSuccess() {
+                            // Authentication was successful. You can now do
+                            // other calls with the SDK.
+                            Toast.makeText(MainActivity.this, "Successfully authenticated with LinkedIn.", Toast.LENGTH_SHORT).show();
+                            fetchBasicProfileData();
+                        }
 
-                    //on successful authentication fetch basic profile data of user
-                    fetchBasicProfileData();
-                }
-
-                @Override
-                public void onAuthError(LIAuthError error) {
-                    // Handle authentication errors
-                    Log.e(TAG, "Auth Error :" + error.toString());
-                    Toast.makeText(MainActivity.this, "Failed to authenticate with LinkedIn. Please try again.", Toast.LENGTH_SHORT).show();
-                }
-            }, true);//if TRUE then it will show dialog if
+                        @Override
+                        public void onAuthError(LIAuthError error) {
+                            // Handle authentication errors
+                            Log.e(TAG, "Auth Error :" + error.toString());
+                            Toast.makeText(MainActivity.this, "Failed to authenticate with LinkedIn. Please try again.", Toast.LENGTH_SHORT).show();
+                        }
+                    }, true);//if TRUE then it will show dialog if
             // any device has no LinkedIn app installed to download app else won't show anything
         } else {
             Toast.makeText(this, "You are already authenticated.", Toast.LENGTH_SHORT).show();
@@ -250,6 +251,9 @@ public class MainActivity extends AppCompatActivity {
                 // Success!
                 Log.d(TAG, "API Res : " + apiResponse.getResponseDataAsString() + "\n" + apiResponse.getResponseDataAsJson().toString());
                 Toast.makeText(MainActivity.this, "Successfully fetched LinkedIn profile data.", Toast.LENGTH_SHORT).show();
+
+                //update UI on successful data fetched
+                updateUI(apiResponse);
             }
 
             @Override
@@ -261,6 +265,11 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * method to update UI
+     *
+     * @param apiResponse after fetching basic profile data
+     */
     private void updateUI(ApiResponse apiResponse) {
         try {
             if (apiResponse != null) {
