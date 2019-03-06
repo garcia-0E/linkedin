@@ -11,20 +11,12 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.linkedin.platform.APIHelper;
-import com.linkedin.platform.DeepLinkHelper;
+
 import com.linkedin.platform.LISessionManager;
-import com.linkedin.platform.errors.LIApiError;
 import com.linkedin.platform.errors.LIAuthError;
-import com.linkedin.platform.errors.LIDeepLinkError;
-import com.linkedin.platform.listeners.ApiListener;
-import com.linkedin.platform.listeners.ApiResponse;
 import com.linkedin.platform.listeners.AuthListener;
-import com.linkedin.platform.listeners.DeepLinkListener;
 import com.linkedin.platform.utils.Scope;
 import com.squareup.picasso.Picasso;
 
@@ -35,56 +27,70 @@ import static com.linkedin.platform.LISessionManager.*;
 
 public class MainActivity extends AppCompatActivity {
 
-    String TAG;
+    private static final String TAG = MainActivity.class.getSimpleName();
+    private Button botonIniciaSesion;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-//        getPackageHash();
+        getPackageHash();
 
-        LISessionManager.getInstance(getApplicationContext()).init(this, buildScope()//pass the build scope here
-                , new AuthListener() {
-                    @Override
-                    public void onAuthSuccess() {
-                        // Authentication was successful. You can now do
-                        // other calls with the SDK.
-                        Toast.makeText(MainActivity.this, "Successfully authenticated with LinkedIn.", Toast.LENGTH_SHORT).show();
-                    }
+        botonIniciaSesion = findViewById(R.id.boton_inicia_sesion);
 
-                    @Override
-                    public void onAuthError(LIAuthError error) {
-                        // Handle authentication errors
-                        Log.e(TAG, "Auth Error :" + error.toString());
-                        Toast.makeText(MainActivity.this, "Failed to authenticate with LinkedIn. Please try again.", Toast.LENGTH_SHORT).show();
-                    }
-                }, true);//if TRUE then it will show dialog if
-        // any device has no LinkedIn app installed to download app else won't show anything
+    }
+
+    private void getPackageHash() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(
+                    "com.grupoLinkedin.proyecto",
+                    PackageManager.GET_SIGNATURES);
+            for (Signature signature : info.signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+
+                Log.d(TAG, "Hash  : " + Base64.encodeToString(md.digest(), Base64.NO_WRAP));
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.d(TAG, e.getMessage(), e);
+        } catch (NoSuchAlgorithmException e) {
+            Log.d(TAG, e.getMessage(), e);
+        }
+    }
+
+    public void iniciaSesionLinkedin(View view) {
+        //Primero chequea si el usuario esta autentificado
+        if (!LISessionManager.getInstance(this).getSession().isValid()) {
+            //Si no empieza la autentificacion
+            LISessionManager.getInstance(getApplicationContext()).init(this, buildScope()//pass the build scope here
+                    , new AuthListener() {
+                        @Override
+                        public void onAuthSuccess() {
+                            // Authentication was successful. You can now do
+                            // other calls with the SDK.
+                            Toast.makeText(MainActivity.this, "Autentificado exitosamente con  LinkedIn.", Toast.LENGTH_SHORT).show();
+
+                        }
+
+                        @Override
+                        public void onAuthError(LIAuthError error) {
+                            // Handle authentication errors
+                            Log.e(TAG, "Auth Error :" + error.toString());
+                            Toast.makeText(MainActivity.this, "Falló la autentificación con LinkedIn. Intente de nuevo por favor.", Toast.LENGTH_SHORT).show();
+                        }
+                    }, true);//if TRUE then it will show dialog if
+            // any device has no LinkedIn app installed to download app else won't show anything
+        } else {
+            Toast.makeText(this, "Ya estás autentificado", Toast.LENGTH_SHORT).show();
+
+            //if user is already authenticated fetch basic profile data for user
+
+        }
 
     }
 
     private static Scope buildScope() {
-        return Scope.build(Scope.R_BASICPROFILE, Scope.W_SHARE);
+        return Scope.build(Scope.R_BASICPROFILE, Scope.R_EMAILADDRESS, Scope.W_SHARE);
     }
-
-
-
-//    private void getPackageHash() {
-//        try {
-//            PackageInfo info = getPackageManager().getPackageInfo(
-//                    "com.grupoLinkedin.proyecto",//give your package name here
-//                    PackageManager.GET_SIGNATURES);
-//            for (Signature signature : info.signatures) {
-//                MessageDigest md = MessageDigest.getInstance("SHA");
-//                md.update(signature.toByteArray());
-//
-//                Log.d(TAG, "Hash  : " + Base64.encodeToString(md.digest(), Base64.NO_WRAP));//Key hash is printing in Log
-//            }
-//        } catch (PackageManager.NameNotFoundException e) {
-//            Log.d(TAG, e.getMessage(), e);
-//        } catch (NoSuchAlgorithmException e) {
-//            Log.d(TAG, e.getMessage(), e);
-//        }
-//    }
 }
