@@ -14,8 +14,12 @@ import android.widget.Button;
 import android.widget.Toast;
 
 
+import com.linkedin.platform.APIHelper;
 import com.linkedin.platform.LISessionManager;
+import com.linkedin.platform.errors.LIApiError;
 import com.linkedin.platform.errors.LIAuthError;
+import com.linkedin.platform.listeners.ApiListener;
+import com.linkedin.platform.listeners.ApiResponse;
 import com.linkedin.platform.listeners.AuthListener;
 import com.linkedin.platform.utils.Scope;
 import com.squareup.picasso.Picasso;
@@ -40,10 +44,12 @@ public class MainActivity extends AppCompatActivity {
         botonIniciaSesion = findViewById(R.id.boton_inicia_sesion);
 
     }
+//    ----------------------------------------------Manera que sirve para autentificacion pero no obtiene token ----------------------------
+
 
     private void getPackageHash() {
         try {
-            PackageInfo info = getPackageManager().getPackageInfo(
+            @SuppressLint("PackageManagerGetSignatures") PackageInfo info = getPackageManager().getPackageInfo(
                     "com.grupoLinkedin.proyecto",
                     PackageManager.GET_SIGNATURES);
             for (Signature signature : info.signatures) {
@@ -59,38 +65,73 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private static Scope buildScope() {
+        return Scope.build(Scope.R_BASICPROFILE, Scope.R_EMAILADDRESS, Scope.W_SHARE);
+    }
+
     public void iniciaSesionLinkedin(View view) {
         //Primero chequea si el usuario esta autentificado
         if (!LISessionManager.getInstance(this).getSession().isValid()) {
             //Si no empieza la autentificacion
             LISessionManager.getInstance(getApplicationContext()).init(this, buildScope()//pass the build scope here
-                    , new AuthListener() {
-                        @Override
-                        public void onAuthSuccess() {
-                            // Authentication was successful. You can now do
-                            // other calls with the SDK.
-                            Toast.makeText(MainActivity.this, "Autentificado exitosamente con  LinkedIn.", Toast.LENGTH_SHORT).show();
+                , new AuthListener() {
+                    @Override
+                    public void onAuthSuccess() {
+                        // autentificacion fue exitosa, ahora puede hacer otras llamasdas con el SDK de Linkedin
+                        Toast.makeText(MainActivity.this, "Autentificado exitosamente con  LinkedIn.", Toast.LENGTH_SHORT).show();
 
-                        }
+                        fetchBasicProfileData();
+                    }
 
-                        @Override
-                        public void onAuthError(LIAuthError error) {
-                            // Handle authentication errors
-                            Log.e(TAG, "Auth Error :" + error.toString());
-                            Toast.makeText(MainActivity.this, "Falló la autentificación con LinkedIn. Intente de nuevo por favor.", Toast.LENGTH_SHORT).show();
-                        }
-                    }, true);//if TRUE then it will show dialog if
-            // any device has no LinkedIn app installed to download app else won't show anything
+                    @Override
+                    public void onAuthError(LIAuthError error) {
+                        // Hubo una falla en la autentificacion
+                        Log.e(TAG, "Auth Error :" + error.toString());
+                        Toast.makeText(MainActivity.this, "Falló la autentificación con LinkedIn. Intente de nuevo por favor.", Toast.LENGTH_SHORT).show();
+                    }
+                }, true);
         } else {
             Toast.makeText(this, "Ya estás autentificado", Toast.LENGTH_SHORT).show();
 
-            //if user is already authenticated fetch basic profile data for user
 
+            fetchBasicProfileData();
         }
 
     }
 
-    private static Scope buildScope() {
-        return Scope.build(Scope.R_BASICPROFILE, Scope.R_EMAILADDRESS, Scope.W_SHARE);
+    private void fetchBasicProfileData() {
+
+        //In URL pass whatever data from user you want for more values check below link
+        //LINK : https://developer.linkedin.com/docs/fields/basic-profile
+        String url = "https://api.linkedin.com/v1/people/~:(id,first-name,last-name,headline,public-profile-url,picture-url,email-address,picture-urls::(original))";
+        //String url = "https://api.linkedin.com/v1/people/~:(id,first-name,last-name)";
+
+        APIHelper apiHelper = APIHelper.getInstance(getApplicationContext());
+        apiHelper.getRequest(this, url, new ApiListener() {
+            @Override
+            public void onApiSuccess(ApiResponse apiResponse) {
+                // Success!
+                Log.d(TAG, "API Res : " + apiResponse.getResponseDataAsString() + "\n" + apiResponse.getResponseDataAsJson().toString());
+                Toast.makeText(MainActivity.this, "Successfully fetched LinkedIn profile data.", Toast.LENGTH_SHORT).show();
+
+                //update UI on successful data fetched
+//                updateUI(apiResponse);
+            }
+
+            @Override
+            public void onApiError(LIApiError liApiError) {
+                // Error making GET request!
+                Log.e(TAG, "Fetch profile Error   :" + liApiError.getLocalizedMessage());
+                Toast.makeText(MainActivity.this, "Failed to fetch basic profile data. Please try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        // Add this line to your existing onActivityResult() method
+        LISessionManager.getInstance(getApplicationContext()).onActivityResult(this, requestCode, resultCode, data);
     }
 }
